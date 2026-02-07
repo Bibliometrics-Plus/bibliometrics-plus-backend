@@ -42,8 +42,7 @@ def load_loans(csv_path: Path, year: int):
     with engine.begin() as conn:
         for row in df.itertuples(index=False):
             conn.execute(
-                text(
-                    """
+                text("""
                     INSERT INTO circulation_transaction (
                         item_id,
                         group_id,
@@ -52,21 +51,14 @@ def load_loans(csv_path: Path, year: int):
                         loan_count
                     )
                     VALUES (
-                        NULL, -- no item_id in this aggregated dataset
-                        (
-                            SELECT group_id
-                            FROM user_group
-                            WHERE age_group = :age_group
-                            LIMIT 1
-                        ),
+                        NULL,          -- no concrete item_id
+                        NULL,          -- no age_group info in this dataset
                         to_date(:period, 'YYYY-MM'),
                         :loan_type,
                         :loan_count
                     );
-                    """
-                ),
+                """),
                 {
-                    "age_group": getattr(row, "age_group", None),
                     "period": getattr(row, "period", f"{year}-01"),
                     "loan_type": getattr(row, "loan_type", "Physical"),
                     "loan_count": int(getattr(row, "loan_count", 0) or 0),
