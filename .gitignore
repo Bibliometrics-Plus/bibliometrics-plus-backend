@@ -10,7 +10,7 @@ venv/
 .env
 *.env
 
-# Data files (raw CSVs etc.)
+# data files (raw CSVs etc.)
 data/
 
 # VS Code
