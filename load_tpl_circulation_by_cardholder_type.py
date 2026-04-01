@@ -14,6 +14,7 @@ def main():
 
     processed = 0
 
+    # Insert one annual circulation record per branch and cardholder type
     with engine.begin() as conn:
         for row in df.itertuples(index=False):
 

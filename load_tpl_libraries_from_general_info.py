@@ -25,6 +25,7 @@ def to_bool_or_none(x):
 def main():
     df = pd.read_csv(CSV_PATH)
 
+    # Keep only the branch and neighbourhood fields we need
     df = df[
         [
             "BranchCode",
@@ -49,6 +50,7 @@ def main():
 
     processed = 0
 
+    # Insert or update each Toronto branch in the library table
     with engine.begin() as conn:
         for row in df.itertuples(index=False):
             conn.execute(
