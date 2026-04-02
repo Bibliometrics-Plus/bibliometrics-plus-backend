@@ -17,9 +17,9 @@ from __future__ import annotations
 import streamlit as st
 import altair as alt
 
-from services.supabase_connector import check_connection
-from services.dashboard_utils import run_query, demo_top_borrowed_categories
-
+from app.services.supabase_connector import check_connection
+from app.services.dashboard_utils import run_query, demo_top_borrowed_categories
+from app.components.shared_styles import apply_shared_styles
 
 # Page setup
 
@@ -28,6 +28,8 @@ st.set_page_config(
     page_icon="",
     layout="wide"
 )
+
+apply_shared_styles()
 
 st.title("KPI Dashboard")
 st.caption("Operational usage KPIs calculated from Supabase tables, with synthetic fallback only where source data is incomplete.")
@@ -46,20 +48,32 @@ else:
 
 # Sidebar filter
 
-st.sidebar.markdown("## KPI Filters")
+st.sidebar.markdown(
+    """
+    <div style="color:#24324A; font-size:2rem; font-weight:700; margin-bottom:0.75rem;">
+        KPI Filters
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 selected_system = st.sidebar.selectbox(
     "Library System",
     ["All Libraries", "Ottawa", "Toronto", "Montreal"]
 )
 
+system_map = {
+    "Ottawa": "OPL",
+    "Toronto": "TPL",
+    "Montreal": "MPL"
+}
+
 if selected_system == "All Libraries":
     filter_clause = ""
     filter_params = {}
 else:
     filter_clause = "AND l.system_name = :selected_system"
-    filter_params = {"selected_system": selected_system}
-
+    filter_params = {"selected_system": system_map[selected_system]}
 
 
 # Snapshot cards
@@ -83,17 +97,29 @@ def get_count(df, col="n", fallback=0):
 
 col1, col2, col3, col4 = st.columns(4)
 
+def metric_card(title, value):
+    st.markdown(
+        f"""
+        <div class="metric-card">
+            <div class="metric-card-title">{title}</div>
+            <div class="metric-card-value">{value}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
 with col1:
-    st.metric("Libraries", f"{get_count(df_libraries, fallback=243):,}")
+    metric_card("Libraries", f"{get_count(df_libraries, fallback=243):,}")
 
 with col2:
-    st.metric("Collection Items", f"{get_count(df_items, fallback=4350):,}")
+    metric_card("Collection Items", f"{get_count(df_items, fallback=4350):,}")
 
 with col3:
-    st.metric("Circulation Transactions", f"{get_count(df_tx, fallback=7368):,}")
+    metric_card("Circulation Transactions", f"{get_count(df_tx, fallback=7368):,}")
 
 with col4:
-    st.metric("Branch KPI Rows", f"{get_count(df_kpi, fallback=1339):,}")
+    metric_card("Branch KPI Rows", f"{get_count(df_kpi, fallback=1339):,}")
+
 
 
 
@@ -124,8 +150,8 @@ if not df_circ_by_library.empty:
         tooltip=["library", "total_circulation"]
     ).properties(height=500)
 
-    st.altair_chart(chart, use_container_width=True)
-    st.dataframe(df_circ_by_library, use_container_width=True)
+    st.altair_chart(chart, width="stretch")
+    st.dataframe(df_circ_by_library, width="stretch")
 else:
     st.info("Branch-level KPI data is not currently available for this filter selection.")
 
@@ -135,7 +161,7 @@ else:
 
 st.subheader("Circulation by Library System")
 
-sql_system = """
+sql_system = f"""
 SELECT
     l.system_name AS system,
     SUM(bk.circulation) AS total_circulation
@@ -143,11 +169,11 @@ FROM branch_kpi bk
 JOIN library l
     ON bk.library_id = l.library_id
 WHERE bk.circulation IS NOT NULL
+{filter_clause}
 GROUP BY l.system_name
 ORDER BY total_circulation DESC;
 """
-
-df_system = run_query(sql_system)
+df_system = run_query(sql_system, filter_params)
 
 if not df_system.empty:
     system_chart = alt.Chart(df_system).mark_bar().encode(
@@ -156,9 +182,10 @@ if not df_system.empty:
         tooltip=["system", "total_circulation"]
     ).properties(height=320)
 
-    st.altair_chart(system_chart, use_container_width=True)
-    st.dataframe(df_system, use_container_width=True)
-
+    st.altair_chart(system_chart, width="stretch")
+    st.dataframe(df_system, width="stretch")
+else:
+    st.info("System-level circulation data is not currently available.")
 
 
 # Trend over time
@@ -187,9 +214,10 @@ if not df_trend.empty:
         tooltip=["year", "total_circulation"]
     ).properties(height=320)
 
-    st.altair_chart(line, use_container_width=True)
-    st.dataframe(df_trend, use_container_width=True)
-
+    st.altair_chart(line, width="stretch")
+    st.dataframe(df_trend, width="stretch")
+else:
+    st.info("Yearly circulation trend data is not currently available.")
 
 
 # Collection format mix
@@ -218,9 +246,10 @@ if not df_format.empty:
         tooltip=["format", "item_count"]
     ).properties(height=350)
 
-    st.altair_chart(format_chart, use_container_width=True)
-    st.dataframe(df_format, use_container_width=True)
-
+    st.altair_chart(format_chart, width="stretch")
+    st.dataframe(df_format, width="stretch")
+else:
+    st.info("Collection format distribution is not currently available.")
 
 # Top borrowed categories / subjects
 
@@ -264,32 +293,113 @@ top_chart = alt.Chart(df_top_categories).mark_bar().encode(
     tooltip=["category", "borrow_count"]
 ).properties(height=350)
 
-st.altair_chart(top_chart, use_container_width=True)
-st.dataframe(df_top_categories, use_container_width=True)
-
+st.altair_chart(top_chart, width="stretch")
+st.dataframe(df_top_categories, width="stretch")
 
 # AI-style summary
 
 st.subheader("AI Insight Summary")
 
+def first_value(df, col, fallback=None):
+    if df.empty or col not in df.columns or df.iloc[0][col] is None:
+        return fallback
+    return df.iloc[0][col]
+
+
+summary_lines = []
+data_notes = []
+
+scope = selected_system if selected_system != "All Libraries" else "all library systems"
+
+
+# 1. Trend insight
 if not df_trend.empty:
     earliest_year = int(df_trend["year"].min())
     latest_year = int(df_trend["year"].max())
 
-    earliest_value = float(df_trend.loc[df_trend["year"] == earliest_year, "total_circulation"].values[0])
-    latest_value = float(df_trend.loc[df_trend["year"] == latest_year, "total_circulation"].values[0])
+    earliest_value = float(
+        df_trend.loc[df_trend["year"] == earliest_year, "total_circulation"].values[0]
+    )
+    latest_value = float(
+        df_trend.loc[df_trend["year"] == latest_year, "total_circulation"].values[0]
+    )
 
     trend_direction = "declined" if latest_value < earliest_value else "increased"
 
-    st.info(
-        f"""
-Between {earliest_year} and {latest_year}, total library circulation has **{trend_direction}**.
+    if earliest_value != 0:
+        pct_change = ((latest_value - earliest_value) / earliest_value) * 100
+        summary_lines.append(
+            f"Across **{scope}**, total circulation has **{trend_direction}** from **{earliest_year}** to **{latest_year}**, changing from **{earliest_value:,.0f}** to **{latest_value:,.0f}** loans (**{pct_change:+.1f}%**)."
+        )
+    else:
+        summary_lines.append(
+            f"Across **{scope}**, total circulation has **{trend_direction}** from **{earliest_year}** to **{latest_year}**, changing from **{earliest_value:,.0f}** to **{latest_value:,.0f}** loans."
+        )
+else:
+    data_notes.append("Trend analysis is unavailable because yearly circulation data could not be loaded.")
 
-The system recorded approximately **{earliest_value:,.0f} loans** in {earliest_year},
-compared to **{latest_value:,.0f} loans** in {latest_year}.
 
-This operational view helps identify long-term changes in demand and branch performance.
-"""
+# 2. Top system insight
+if not df_system.empty:
+    top_system = first_value(df_system, "system", "Unknown")
+    top_system_value = first_value(df_system, "total_circulation", 0)
+    summary_lines.append(
+        f"The highest recorded circulation at the system level is currently **{top_system}**, with approximately **{top_system_value:,.0f}** total loans."
     )
+else:
+    data_notes.append("System-level comparison could not be generated.")
+
+
+# 3. Top branch insight
+if not df_circ_by_library.empty:
+    top_branch = first_value(df_circ_by_library, "library", "Unknown")
+    top_branch_value = first_value(df_circ_by_library, "total_circulation", 0)
+    summary_lines.append(
+        f"At the branch level, **{top_branch}** appears as the strongest visible library in the current filter selection, with about **{top_branch_value:,.0f}** recorded circulations."
+    )
+else:
+    data_notes.append("Branch-level KPI data is currently missing for this filter selection.")
+
+
+# 4. Format insight
+if not df_format.empty:
+    top_format = first_value(df_format, "format", "Unknown")
+    top_format_count = first_value(df_format, "item_count", 0)
+    summary_lines.append(
+        f"In the available collection data, **{top_format}** is the most common format, with roughly **{top_format_count:,.0f}** items."
+    )
+else:
+    data_notes.append("Collection format distribution is unavailable for the current filter.")
+
+
+# 5. Top borrowed category insight
+if not df_top_categories.empty:
+    top_category = first_value(df_top_categories, "category", "Unknown")
+    top_category_count = first_value(df_top_categories, "borrow_count", 0)
+    summary_lines.append(
+        f"The most borrowed visible category is **{top_category}**, with approximately **{top_category_count:,.0f}** borrow events."
+    )
+
+    if used_demo_subjects:
+        data_notes.append(
+            "Category popularity is currently based on generated demo data because subject-linked borrowing records are not yet fully available in Supabase."
+        )
+else:
+    data_notes.append("Borrowed category analysis could not be generated.")
+
+
+# 6. Recommendation line
+if not df_trend.empty and not df_system.empty:
+    summary_lines.append(
+        "This suggests that the KPI dashboard is already useful for spotting demand shifts, comparing systems, and identifying where deeper branch- or category-level follow-up may be needed."
+    )
+
+
+# Display summary
+if summary_lines:
+    st.info("\n\n".join(summary_lines))
+
+if data_notes:
+    st.warning("**Data caveats:**\n\n- " + "\n- ".join(data_notes))
 
 st.caption("Bibliometrics+ | KPI Dashboard")

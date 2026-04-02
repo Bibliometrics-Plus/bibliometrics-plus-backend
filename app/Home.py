@@ -22,7 +22,7 @@ from services.dashboard_utils import run_query, demo_home_snapshot
 
 st.set_page_config(
     page_title="Bibliometrics+",
-    page_icon="",
+    page_icon="📚",
     layout="wide"
 )
 
@@ -32,35 +32,149 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-        .main { padding-top: 1rem; }
+        :root {
+            --bg-main: #030B2E;
+            --bg-panel: #07164A;
+            --blue-main: #0D5BFF;
+            --blue-bright: #2DA8FF;
+            --blue-soft: #0B2C7D;
+            --gold: #F2C94C;
+            --text-main: #FFFFFF;
+            --text-soft: #D6E4FF;
+            --border-glow: rgba(45, 168, 255, 0.45);
+        }
+        
+        [data-testid="stHeader"] {
+            background: transparent !important;
+        }
+        
+        .stApp {
+            background: linear-gradient(180deg, #02081F 0%, #04113C 100%);
+            color: var(--text-main);
+        }
+
+        .main {
+            padding-top: 1rem;
+        }
+
         .hero-card {
-            background-color: #f8fafc;
-            padding: 1.5rem;
-            border-radius: 14px;
-            border: 1px solid #e2e8f0;
+            background: linear-gradient(135deg, #06123D 0%, #0A2D8A 55%, #0D5BFF 100%);
+            padding: 1.8rem;
+            border-radius: 18px;
+            border: 1px solid var(--border-glow);
             margin-bottom: 1.5rem;
+            box-shadow: 0 0 24px rgba(13, 91, 255, 0.25);
         }
+
         .section-card {
-            background-color: #ffffff;
+            background: linear-gradient(90deg, #06206A 0%, #157FD6 100%);
             padding: 1.25rem;
-            border-radius: 14px;
-            border: 1px solid #e5e7eb;
+            border-radius: 22px;
+            border: 4px solid #F4F4F4;
             margin-bottom: 1rem;
+            min-height: 190px;
+            box-shadow: 0 0 14px rgba(21, 127, 214, 0.18);
         }
-        .dashboard-title {
-            font-size: 2.2rem;
-            font-weight: 700;
-            margin-bottom: 0.2rem;
-        }
-        .dashboard-subtitle {
+
+        .section-card h4 {
+            color: white !important;
             font-size: 1.1rem;
-            color: #475569;
+            font-weight: 700;
+            margin-top: 0;
+            margin-bottom: 0.7rem;
+        }
+
+        .section-card p {
+            color: #F4F8FF;
+            font-size: 0.98rem;
+            line-height: 1.5;
+            margin-bottom: 0;
+        }
+
+        .dashboard-title {
+            font-size: 2.4rem;
+            font-weight: 800;
+            margin-bottom: 0.2rem;
+            color: var(--gold);
+            letter-spacing: 0.5px;
+        }
+
+        .dashboard-subtitle {
+            font-size: 1.15rem;
+            color: var(--text-main);
             margin-bottom: 0.8rem;
+            font-weight: 600;
         }
+
         .small-muted {
-            color: #475569;
-            font-size: 0.95rem;
+            color: var(--text-soft);
+            font-size: 0.96rem;
+            line-height: 1.5;
         }
+
+        h3, h4, .section-heading {
+            color: var(--text-main) !important;
+        }
+        
+        .metric-title {
+            color: #FFFFFF;
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 0.15rem;
+            padding-left: 0.1rem;
+        }
+        div[data-testid="stMetric"] {
+            background: rgba(7, 22, 74, 0.92);
+            border: 1px solid var(--border-glow);
+            border-radius: 14px;
+            padding: 0.9rem 1rem;
+            box-shadow: 0 0 10px rgba(45, 168, 255, 0.10);
+        }
+
+        div[data-testid="stMetricLabel"] {
+            color: #FFFFFF !important;
+            opacity: 1 !important;
+            font-weight: 600;
+        }
+
+        div[data-testid="stMetricValue"] {
+            color: #FFFFFF !important;
+            font-weight: 800;
+        }
+
+        div[data-testid="stSidebar"] * {
+            color: #D2E0F2 !important;
+        }
+
+        div[data-testid="stSidebarNav"] a[aria-current="page"] {
+            background-color: #C3D4EC !important;
+            color: #1E4F94 !important;
+            font-weight: 700 !important;
+            border-radius: 12px !important;
+        }
+
+        div[data-testid="stSidebarNav"] a:hover {
+            background-color: #CCD9EE !important;
+            border-radius: 12px !important;
+        }
+
+        hr {
+            border-color: #BCCCE3 !important;
+        }
+
+        div[data-testid="stAlert"] {
+            background-color: #DDE6F2 !important;
+            border: 1px solid #C7D3E6 !important;
+            color: #0B4EA2 !important;
+            border-radius: 14px !important;
+        }
+
+        div[data-testid="stAlert"] p {
+            color: #0B4EA2 !important;
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+         
     </style>
     """,
     unsafe_allow_html=True
@@ -107,7 +221,7 @@ st.markdown(
 st.markdown(
     """
     <div class="section-card">
-        <h3 style="margin-top:0;">Project Overview</h3>
+        <h3 class="section-heading" style="margin-top:0;">Project Overview</h3>
         <p>Bibliometrics+ is a prototype analytics system designed to support evidence-based decision making in public libraries.</p>
         <p>The platform combines traditional bibliometric analysis with Equity, Diversity, and Inclusion indicators to evaluate collection usage, accessibility, and representation.</p>
         <p>The objective is to move beyond simple circulation statistics and provide insights that help libraries improve equitable access to information resources.</p>
@@ -154,23 +268,32 @@ if isinstance(edi_share, float):
 
 
 # Executive snapshot cards
-
 st.subheader("Executive Snapshot")
 
 col1, col2, col3, col4 = st.columns(4)
 
+def metric_card(title, value):
+    st.markdown(
+        f"""
+        <div class="metric-card">
+            <div class="metric-card-title">{title}</div>
+            <div class="metric-card-value">{value}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
 with col1:
-    st.metric("Total Circulation", total_circulation)
+    metric_card("Total Circulation", total_circulation)
 
 with col2:
-    # Growth is still a demo estimate until we formalize year-over-year KPI logic
-    st.metric("Circulation Growth", demo["circulation_growth"])
+    metric_card("Circulation Growth", demo["circulation_growth"])
 
 with col3:
-    st.metric("Distinct Subjects Mapped", f"{distinct_subjects:,}")
+    metric_card("Distinct Subjects Mapped", f"{distinct_subjects:,}")
 
 with col4:
-    st.metric("Accessible Format Share", edi_share)
+    metric_card("Accessible Format Share", edi_share)
 
 
 
@@ -191,7 +314,7 @@ with col_a:
     st.markdown(
         """
         <div class="section-card">
-            <h4 style="margin-top:0;">Operational Analytics</h4>
+            <h4 class="section-heading" style="margin-top:0;">Operational Analytics</h4>
             <p>Track circulation totals, branch-level performance, system comparison, and long-term usage trends.</p>
         </div>
         """,
@@ -201,7 +324,7 @@ with col_a:
     st.markdown(
         """
         <div class="section-card">
-            <h4 style="margin-top:0;">EDI & Collection Diversity</h4>
+            <h4 class="section-heading" style="margin-top:0;">EDI & Collection Diversity</h4>
             <p>Analyze accessible formats, subject representation, format diversity, and publication-year coverage.</p>
         </div>
         """,
@@ -212,7 +335,7 @@ with col_b:
     st.markdown(
         """
         <div class="section-card">
-            <h4 style="margin-top:0;">Data Reliability</h4>
+            <h4 class="section-heading" style="margin-top:0;">Data Reliability</h4>
             <p>Review connection health, table inventory, data completeness, and join coverage.</p>
         </div>
         """,
@@ -222,7 +345,7 @@ with col_b:
     st.markdown(
         """
         <div class="section-card">
-            <h4 style="margin-top:0;">AI-Supported Interpretation</h4>
+            <h4 class="section-heading" style="margin-top:0;">AI-Supported Interpretation</h4>
             <p>Generate narrative summaries that explain patterns in circulation, collection structure, and equity indicators.</p>
         </div>
         """,

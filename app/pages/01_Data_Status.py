@@ -8,10 +8,125 @@ Purpose:
 """
 
 import streamlit as st
-from services.supabase_connector import check_connection, get_table_row_counts
-from services.dashboard_utils import run_query, demo_quality_checks
+from app.services.supabase_connector import check_connection, get_table_row_counts
+from app.services.dashboard_utils import run_query, demo_quality_checks
 
+# Custom CSS styling
 
+st.markdown(
+    """
+    <style>
+        :root {
+            --bg-main: #030B2E;
+            --bg-panel: #07164A;
+            --blue-main: #0D5BFF;
+            --blue-bright: #2DA8FF;
+            --blue-soft: #0B2C7D;
+            --gold: #F2C94C;
+            --text-main: #FFFFFF;
+            --text-soft: #D6E4FF;
+            --border-glow: rgba(45, 168, 255, 0.45);
+        }
+        
+        [data-testid="stAppViewContainer"] {
+            background: #020B3A !important;
+        }
+        .stApp {
+            background: #020B3A !important;
+        }
+
+        [data-testid="stHeader"] {
+            background: transparent !important;
+        }
+
+        .main {
+            padding-top: 1rem;
+        }
+
+        .section-card {
+            background: linear-gradient(90deg, #06206A 0%, #157FD6 100%);
+            padding: 1.25rem;
+            border-radius: 22px;
+            border: 4px solid #F4F4F4;
+            margin-bottom: 1rem;
+            min-height: 190px;
+            box-shadow: 0 0 14px rgba(21, 127, 214, 0.18);
+        }
+
+        .section-card h4 {
+            color: white !important;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-top: 0;
+            margin-bottom: 0.7rem;
+        }
+
+        .section-card p {
+            color: #F4F8FF;
+            font-size: 0.98rem;
+            line-height: 1.5;
+            margin-bottom: 0;
+        }
+
+        h3, h4, .section-heading {
+            color: var(--text-main) !important;
+        }
+
+        div[data-testid="stSidebar"] * {
+            color: #D2E0F2 !important;
+        }
+
+        div[data-testid="stSidebarNav"] a[aria-current="page"] {
+            background-color: #C3D4EC !important;
+            color: #1E4F94 !important;
+            font-weight: 700 !important;
+            border-radius: 12px !important;
+        }
+
+        div[data-testid="stSidebarNav"] a:hover {
+            background-color: #CCD9EE !important;
+            border-radius: 12px !important;
+        }
+
+        hr {
+            border-color: #BCCCE3 !important;
+        }
+
+        div[data-testid="stAlert"] {
+            background-color: #DDE6F2 !important;
+            border: 1px solid #C7D3E6 !important;
+            color: #0B4EA2 !important;
+            border-radius: 14px !important;
+        }
+
+        div[data-testid="stAlert"] p {
+            color: #0B4EA2 !important;
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+        
+        .table-section-title {
+            color: #FFFFFF;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 0.6rem;
+        }
+
+        .notes-list {
+            color: #F4F8FF;
+            font-size: 1rem;
+            line-height: 1.8;
+            padding-left: 1.4rem;
+        }
+
+        .notes-list li {
+            color: #F4F8FF;
+            margin-bottom: 0.7rem;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 # Page setup
 
@@ -21,8 +136,17 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("Data Status")
-st.caption("Database connection health, table inventory, and data-quality diagnostics.")
+st.markdown(
+    """
+    <div class="section-card">
+        <h3 class="section-heading" style="margin-top:0;">Data Status</h3>
+        <p>Database connection health, table inventory, and data-quality diagnostics.</p>
+        <p>This page shows connection status, table counts, and quick validation checks so the dashboard remains transparent and trustworthy.
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 
 # Check connection and load table counts
@@ -40,8 +164,7 @@ else:
 # Table inventory
 
 st.subheader("Connection Status & Table Inventory")
-st.dataframe(table_counts_df, use_container_width=True)
-
+st.dataframe(table_counts_df, width="stretch")
 
 
 # Live quality checks
@@ -131,24 +254,30 @@ if joins_df.empty:
 c1, c2, c3 = st.columns(3)
 
 with c1:
-    st.markdown("**Null / Missing Values**")
-    st.dataframe(nulls_df, use_container_width=True, hide_index=True)
+    st.markdown("<div class='table-section-title'>Null / Missing Values</div>", unsafe_allow_html=True)
+    st.dataframe(nulls_df, width="stretch", hide_index=True)
 
 with c2:
-    st.markdown("**Duplicate Records**")
-    st.dataframe(duplicates_df, use_container_width=True, hide_index=True)
+    st.markdown("<div class='table-section-title'>Duplicate Records</div>", unsafe_allow_html=True)
+    st.dataframe(duplicates_df, width="stretch", hide_index=True)
 
 with c3:
-    st.markdown("**Join Coverage**")
-    st.dataframe(joins_df, use_container_width=True, hide_index=True)
-
+    st.markdown("<div class='table-section-title'>Join Coverage</div>", unsafe_allow_html=True)
+    st.dataframe(joins_df, width="stretch", hide_index=True)
 
 # Notes and limitations
 
 st.subheader("Known Data Limitations & Notes")
-st.write("- Montréal datasets may require French-to-English field mapping.")
-st.write("- Subject mapping tables exist in the schema but are not fully populated yet.")
-st.write("- Accessibility fields may be sparse depending on source dataset completeness.")
-st.write("- When a source metric is missing, the app uses clearly labeled generated demo data rather than leaving empty visuals.")
+st.markdown(
+    """
+    <ul class="notes-list">
+        <li>Montréal datasets may require French-to-English field mapping.</li>
+        <li>Subject mapping tables exist in the schema but are not fully populated yet.</li>
+        <li>Accessibility fields may be sparse depending on source dataset completeness.</li>
+        <li>When a source metric is missing, the app uses clearly labeled generated demo data rather than leaving empty visuals.</li>
+    </ul>
+    """,
+    unsafe_allow_html=True
+)
 
 st.caption("Bibliometrics+ | Data Status Page")

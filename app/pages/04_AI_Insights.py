@@ -7,12 +7,26 @@ Purpose:
 - clearly distinguish between live data and demo-generated estimates
 """
 
+import os
+import pandas as pd
 import streamlit as st
 import altair as alt
+from openai import OpenAI
 
-from services.dashboard_utils import run_query, demo_subjects, demo_accessibility
+from app.services.supabase_connector import check_connection, get_table_row_counts
+from app.services.dashboard_utils import (
+    run_query,
+    demo_subjects,
+    demo_accessibility,
+    demo_publication_year,
+)
+from app.components.shared_styles import apply_shared_styles
 
-
+def get_openai_client():
+    api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return None
+    return OpenAI(api_key=api_key)
 
 # Page setup
 
@@ -21,10 +35,12 @@ st.set_page_config(
     page_icon="",
     layout="wide"
 )
+apply_shared_styles()
+
+#AI Insights
 
 st.title("AI Insights")
 st.caption("Narrative interpretation layer for operational and EDI patterns.")
-
 
 # Sidebar filter
 
@@ -34,14 +50,22 @@ selected_system = st.sidebar.selectbox(
     key="ai_system"
 )
 
+system_map = {
+    "Ottawa": "OPL",
+    "Toronto": "TPL",
+    "Montreal": "MPL"
+}
+
 if selected_system == "All Libraries":
     filter_clause = ""
     filter_params = {}
 else:
     filter_clause = "AND l.system_name = :selected_system"
-    filter_params = {"selected_system": selected_system}
+    filter_params = {"selected_system": system_map[selected_system]}
 
-
+# Data Status context
+db_status = check_connection()
+table_counts_df, _ = get_table_row_counts(schema="public")
 
 # Load circulation trend
 
@@ -64,7 +88,7 @@ df_trend = run_query(sql_trend, filter_params)
 
 # Load system comparison
 
-sql_system = """
+sql_system = f"""
 SELECT
     l.system_name AS system,
     SUM(bk.circulation) AS total_circulation
@@ -72,11 +96,11 @@ FROM branch_kpi bk
 JOIN library l
     ON bk.library_id = l.library_id
 WHERE bk.circulation IS NOT NULL
+{filter_clause}
 GROUP BY l.system_name
 ORDER BY total_circulation DESC;
 """
-
-df_system = run_query(sql_system)
+df_system = run_query(sql_system, filter_params)
 
 
 # Load subject representation
@@ -129,7 +153,53 @@ if df_access.empty:
     df_access = demo_accessibility(selected_system)
     used_demo_access = True
 
+# Load publication-year distribution
+sql_pub_year = f"""
+SELECT
+    ci.publication_year,
+    COUNT(*) AS item_count
+FROM collection_item ci
+JOIN library l
+    ON ci.library_id = l.library_id
+WHERE ci.publication_year IS NOT NULL
+{filter_clause}
+GROUP BY ci.publication_year
+ORDER BY ci.publication_year;
+"""
 
+df_year = run_query(sql_pub_year, filter_params)
+
+used_demo_year = False
+if df_year.empty:
+    df_year = demo_publication_year(selected_system)
+    used_demo_year = True
+
+# Load Toronto neighbourhood context
+df_neighbourhood = pd.DataFrame()
+
+if selected_system in ["All Libraries", "Toronto"]:
+    sql_neighbourhood = """
+    SELECT
+        l.name AS branch_name,
+        l.neighbourhood_no,
+        l.neighbourhood_name,
+        t.tsns_designation,
+        t.median_after_tax_income_2020,
+        t.low_income_lim_at_pct,
+        t.core_housing_need_pct,
+        t.shelter_cost_30_plus_pct,
+        t.age_0_14_pct,
+        t.age_65_plus_pct,
+        t.non_official_languages_count
+    FROM library l
+    JOIN tpl_neighbourhood_profile t
+        ON l.neighbourhood_no = t.neighbourhood_no
+    WHERE l.system_name = 'TPL'
+    ORDER BY
+        t.low_income_lim_at_pct DESC NULLS LAST,
+        t.median_after_tax_income_2020 ASC NULLS LAST;
+    """
+    df_neighbourhood = run_query(sql_neighbourhood)
 
 # Executive narrative
 
@@ -152,8 +222,8 @@ For {scope}, total circulation has **{direction}** between {first_year} and {las
 moving from approximately **{first_val:,.0f}** to **{last_val:,.0f}** loans.
 """
     )
-
-
+else:
+    st.info("A live circulation trend is not currently available for this filter selection.")
 
 # Interpretive findings
 
@@ -181,7 +251,7 @@ with c1:
             x=alt.X("item_count:Q", title="Items"),
             y=alt.Y("subject_name:N", sort="-x", title="Subject")
         ).properties(height=320),
-        use_container_width=True
+        width="stretch"
     )
 
 with c2:
@@ -191,10 +261,149 @@ with c2:
             x=alt.X("item_count:Q", title="Items"),
             y=alt.Y("accessibility_format:N", sort="-x", title="Accessibility Format")
         ).properties(height=320),
-        use_container_width=True
+        width="stretch"
     )
 
 
+
+#check if openai is working
+client = get_openai_client()
+
+if client is None:
+    st.error("OPENAI_API_KEY is missing.")
+else:
+    st.success("OpenAI client loaded.")
+st.subheader("Ask the AI About These Insights")
+st.caption("The AI assistant uses data summaries from Data Status, KPI, EDI, and Toronto neighbourhood context where available.")
+
+def df_preview(df, max_rows=8):
+    if df is None or df.empty:
+        return "No rows available."
+    return df.head(max_rows).to_markdown(index=False)
+
+def build_ai_context():
+    scope = selected_system if selected_system != "All Libraries" else "all library systems"
+
+    context = f"""
+You are helping interpret a public-library analytics dashboard.
+
+Current filter scope: {scope}
+
+DATABASE / DATA STATUS
+Connection mode: {db_status.mode}
+Connection message: {db_status.message}
+
+Table inventory preview:
+{df_preview(table_counts_df)}
+
+KPI PAGE CONTEXT
+
+Circulation trend:
+{df_preview(df_trend)}
+
+System comparison:
+{df_preview(df_system)}
+
+EDI PAGE CONTEXT
+
+Accessibility distribution:
+{df_preview(df_access)}
+
+Publication-year distribution:
+{df_preview(df_year)}
+
+Subject representation:
+{df_preview(df_subject)}
+
+Toronto neighbourhood context:
+{df_preview(df_neighbourhood)}
+
+Rules:
+- Be concise and practical.
+- Distinguish live data from demo/fallback data.
+- Do not invent missing facts.
+- If data coverage is incomplete, say so clearly.
+- Use plain language suitable for librarians, instructors, and non-technical users.
+- When discussing neighbourhood data, treat core_housing_need_pct and shelter_cost_30_plus_pct as percentages.
+- Treat age_0_14_pct and age_65_plus_pct as counts if values look like counts rather than percentages.
+- Treat non_official_languages_count as a count, not a percentage.
+"""
+
+    if used_demo_subject:
+        context += "\nSubject data note: subject representation is currently based on generated demo data.\n"
+
+    if used_demo_access:
+        context += "\nAccessibility data note: accessibility distribution is currently based on generated demo data.\n"
+
+    if used_demo_year:
+        context += "\nPublication-year note: publication-year distribution is currently based on generated demo data.\n"
+
+    if df_neighbourhood.empty:
+        context += "\nNeighbourhood context note: Toronto neighbourhood context is unavailable or not applicable for the current filter.\n"
+
+    return context
+
+if "ai_messages" not in st.session_state:
+    st.session_state.ai_messages = [
+        {
+            "role": "assistant",
+            "content": "Ask me about circulation trends, accessibility patterns, subject diversity, neighbourhood context, or data coverage in the current dashboard view."
+        }
+    ]
+
+for message in st.session_state.ai_messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+if prompt := st.chat_input("Ask about the current dashboard view..."):
+    st.session_state.ai_messages.append({"role": "user", "content": prompt})
+
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    with st.chat_message("assistant"):
+        if client is None:
+            reply = "OPENAI_API_KEY is missing, so live AI chat is not available yet."
+            st.markdown(reply)
+        else:
+            try:
+                context = build_ai_context()
+
+                stream = client.responses.create(
+                    model="gpt-5",
+                    input=[
+                        {
+                            "role": "developer",
+                            "content": (
+                                "You are an analytics assistant for a public library dashboard. "
+                                "Answer only from the supplied dashboard context. "
+                                "If data is incomplete or demo-based, say that clearly. "
+                                "Be practical, concise, and easy for non-technical users to understand."
+                            ),
+                        },
+                        {
+                            "role": "user",
+                            "content": f"{context}\n\nUser question: {prompt}",
+                        },
+                    ],
+                    stream=True,
+                )
+
+                chunks = []
+                placeholder = st.empty()
+
+                for event in stream:
+                    if event.type == "response.output_text.delta":
+                        chunks.append(event.delta)
+                        placeholder.markdown("".join(chunks))
+
+                reply = "".join(chunks) if chunks else "No response was returned."
+
+            except Exception as e:
+                reply = f"AI response failed: {e}"
+                st.error(reply)
+
+    st.session_state.ai_messages.append({"role": "assistant", "content": reply})
 
 
 
