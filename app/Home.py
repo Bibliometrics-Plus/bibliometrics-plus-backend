@@ -15,10 +15,15 @@ Design approach:
 """
 
 import streamlit as st
-from services.dashboard_utils import run_query, demo_home_snapshot
 
+from app.components.shared_styles import (
+    apply_shared_styles,
+    render_brand,
+    render_page_intro,
+    render_metric_card,
+)
+from app.services.dashboard_utils import run_query, demo_home_snapshot
 
-# Page configuration
 
 st.set_page_config(
     page_title="Bibliometrics+",
@@ -26,286 +31,117 @@ st.set_page_config(
     layout="wide"
 )
 
+apply_shared_styles()
 
-# Custom CSS styling
+render_brand()
 
-st.markdown(
+render_page_intro(
+    "Bibliometrics+",
+    "A multi-city public library analytics prototype combining KPI, EDI, and AI-supported interpretation."
+)
+
+# Sidebar
+st.sidebar.markdown(
     """
-    <style>
-        :root {
-            --bg-main: #030B2E;
-            --bg-panel: #07164A;
-            --blue-main: #0D5BFF;
-            --blue-bright: #2DA8FF;
-            --blue-soft: #0B2C7D;
-            --gold: #F2C94C;
-            --text-main: #FFFFFF;
-            --text-soft: #D6E4FF;
-            --border-glow: rgba(45, 168, 255, 0.45);
-        }
-        
-        [data-testid="stHeader"] {
-            background: transparent !important;
-        }
-        
-        .stApp {
-            background: linear-gradient(180deg, #02081F 0%, #04113C 100%);
-            color: var(--text-main);
-        }
-
-        .main {
-            padding-top: 1rem;
-        }
-
-        .hero-card {
-            background: linear-gradient(135deg, #06123D 0%, #0A2D8A 55%, #0D5BFF 100%);
-            padding: 1.8rem;
-            border-radius: 18px;
-            border: 1px solid var(--border-glow);
-            margin-bottom: 1.5rem;
-            box-shadow: 0 0 24px rgba(13, 91, 255, 0.25);
-        }
-
-        .section-card {
-            background: linear-gradient(90deg, #06206A 0%, #157FD6 100%);
-            padding: 1.25rem;
-            border-radius: 22px;
-            border: 4px solid #F4F4F4;
-            margin-bottom: 1rem;
-            min-height: 190px;
-            box-shadow: 0 0 14px rgba(21, 127, 214, 0.18);
-        }
-
-        .section-card h4 {
-            color: white !important;
-            font-size: 1.1rem;
-            font-weight: 700;
-            margin-top: 0;
-            margin-bottom: 0.7rem;
-        }
-
-        .section-card p {
-            color: #F4F8FF;
-            font-size: 0.98rem;
-            line-height: 1.5;
-            margin-bottom: 0;
-        }
-
-        .dashboard-title {
-            font-size: 2.4rem;
-            font-weight: 800;
-            margin-bottom: 0.2rem;
-            color: var(--gold);
-            letter-spacing: 0.5px;
-        }
-
-        .dashboard-subtitle {
-            font-size: 1.15rem;
-            color: var(--text-main);
-            margin-bottom: 0.8rem;
-            font-weight: 600;
-        }
-
-        .small-muted {
-            color: var(--text-soft);
-            font-size: 0.96rem;
-            line-height: 1.5;
-        }
-
-        h3, h4, .section-heading {
-            color: var(--text-main) !important;
-        }
-        
-        .metric-title {
-            color: #FFFFFF;
-            font-size: 1.05rem;
-            font-weight: 700;
-            margin-bottom: 0.15rem;
-            padding-left: 0.1rem;
-        }
-        div[data-testid="stMetric"] {
-            background: rgba(7, 22, 74, 0.92);
-            border: 1px solid var(--border-glow);
-            border-radius: 14px;
-            padding: 0.9rem 1rem;
-            box-shadow: 0 0 10px rgba(45, 168, 255, 0.10);
-        }
-
-        div[data-testid="stMetricLabel"] {
-            color: #FFFFFF !important;
-            opacity: 1 !important;
-            font-weight: 600;
-        }
-
-        div[data-testid="stMetricValue"] {
-            color: #FFFFFF !important;
-            font-weight: 800;
-        }
-
-        div[data-testid="stSidebar"] * {
-            color: #D2E0F2 !important;
-        }
-
-        div[data-testid="stSidebarNav"] a[aria-current="page"] {
-            background-color: #C3D4EC !important;
-            color: #1E4F94 !important;
-            font-weight: 700 !important;
-            border-radius: 12px !important;
-        }
-
-        div[data-testid="stSidebarNav"] a:hover {
-            background-color: #CCD9EE !important;
-            border-radius: 12px !important;
-        }
-
-        hr {
-            border-color: #BCCCE3 !important;
-        }
-
-        div[data-testid="stAlert"] {
-            background-color: #DDE6F2 !important;
-            border: 1px solid #C7D3E6 !important;
-            color: #0B4EA2 !important;
-            border-radius: 14px !important;
-        }
-
-        div[data-testid="stAlert"] p {
-            color: #0B4EA2 !important;
-            font-size: 1rem;
-            line-height: 1.5;
-        }
-         
-    </style>
+    <div style="color:#24324A; font-size:2rem; font-weight:700; margin-bottom:0.75rem;">
+        Dashboard Filters
+    </div>
     """,
     unsafe_allow_html=True
 )
-
-
-# Sidebar filters
-
-st.sidebar.title("Dashboard Filters")
 
 selected_library = st.sidebar.selectbox(
     "Library",
     ["All Libraries", "Ottawa Public Library", "Toronto Public Library", "Montreal Public Library"]
 )
 
-year_range = st.sidebar.slider("Year Range", 2015, 2025, (2019, 2024))
+year_range = st.sidebar.slider(
+    "Year Range",
+    2015,
+    2025,
+    (2019, 2024)
+)
 
 user_group = st.sidebar.selectbox(
     "User Group",
     ["All Users", "Adults", "Youth", "Seniors"]
 )
 
-
-# Hero / landing section
-
-st.markdown(
-    """
-    <div class="hero-card">
-        <div class="dashboard-title">Bibliometrics+</div>
-        <div class="dashboard-subtitle">AI & EDI-Driven Library Usage Analytics Dashboard</div>
-        <div class="small-muted">
-            A prototype decision-support platform designed to help public libraries analyze
-            circulation patterns, collection diversity, accessibility, and equity-focused indicators.
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-
-
-# Project overview
-
-st.markdown(
-    """
-    <div class="section-card">
-        <h3 class="section-heading" style="margin-top:0;">Project Overview</h3>
-        <p>Bibliometrics+ is a prototype analytics system designed to support evidence-based decision making in public libraries.</p>
-        <p>The platform combines traditional bibliometric analysis with Equity, Diversity, and Inclusion indicators to evaluate collection usage, accessibility, and representation.</p>
-        <p>The objective is to move beyond simple circulation statistics and provide insights that help libraries improve equitable access to information resources.</p>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-
-
-# Load live metrics where available
-# We query a few core tables and then fall back to generated values only if needed.
-df_libraries = run_query("SELECT COUNT(*) AS n FROM library;")
-df_items = run_query("SELECT COUNT(*) AS n FROM collection_item;")
-df_tx = run_query("SELECT SUM(circulation) AS total_circulation FROM branch_kpi;")
-df_subjects = run_query("SELECT COUNT(DISTINCT subject_id) AS n FROM collection_item_subject;")
-df_access = run_query("""
-SELECT
-    ROUND(100.0 * COUNT(*) FILTER (WHERE accessibility_format IS NOT NULL) / NULLIF(COUNT(*), 0), 1) AS edi_share
-FROM collection_item;
-""")
-
-demo = demo_home_snapshot()
-
-
+# Helpers
 def first_or(df, col, fallback):
-    """
-    Return the first value in a DataFrame column,
-    or a fallback value if the query came back empty.
-    """
     if df.empty or col not in df.columns or df.iloc[0][col] is None:
         return fallback
     return df.iloc[0][col]
 
 
-# Prepare display values
-total_circulation = f"{int(first_or(df_tx, 'total_circulation', demo['total_circulation'])):,}"
-distinct_subjects = int(first_or(df_subjects, "n", demo["distinct_subjects"]))
-edi_share = first_or(df_access, "edi_share", demo["edi_share"])
+demo = demo_home_snapshot()
 
-if isinstance(edi_share, float):
-    edi_share = f"{edi_share:.1f}%"
+# Snapshot queries
+df_total_circulation = run_query("""
+SELECT SUM(circulation) AS total_circulation
+FROM branch_kpi
+WHERE circulation IS NOT NULL;
+""")
 
+df_subjects = run_query("""
+SELECT COUNT(DISTINCT subject_id) AS distinct_subjects
+FROM collection_item_subject;
+""")
 
+df_access = run_query("""
+SELECT
+    ROUND(
+        100.0 * COUNT(*) FILTER (WHERE accessibility_format IS NOT NULL)
+        / NULLIF(COUNT(*), 0),
+        1
+    ) AS accessible_share
+FROM collection_item;
+""")
 
-# Executive snapshot cards
+# Final display values
+total_circulation_val = int(first_or(df_total_circulation, "total_circulation", demo["total_circulation"]))
+total_circulation = f"{total_circulation_val:,}"
+
+distinct_subjects_val = int(first_or(df_subjects, "distinct_subjects", demo["distinct_subjects"]))
+distinct_subjects = f"{distinct_subjects_val:,}"
+
+accessible_share_val = first_or(df_access, "accessible_share", demo["edi_share"])
+if isinstance(accessible_share_val, (int, float)):
+    edi_share = f"{accessible_share_val:.1f}%"
+else:
+    edi_share = str(accessible_share_val)
+
+# Executive snapshot
 st.subheader("Executive Snapshot")
 
 col1, col2, col3, col4 = st.columns(4)
 
-def metric_card(title, value):
-    st.markdown(
-        f"""
-        <div class="metric-card">
-            <div class="metric-card-title">{title}</div>
-            <div class="metric-card-value">{value}</div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
 with col1:
-    metric_card("Total Circulation", total_circulation)
+    render_metric_card("Total Circulation", total_circulation)
 
 with col2:
-    metric_card("Circulation Growth", demo["circulation_growth"])
+    render_metric_card("Circulation Growth", demo["circulation_growth"])
 
 with col3:
-    metric_card("Distinct Subjects Mapped", f"{distinct_subjects:,}")
+    render_metric_card("Distinct Subjects Mapped", distinct_subjects)
 
 with col4:
-    metric_card("Accessible Format Share", edi_share)
-
-
-
-# Explain data sourcing
+    render_metric_card("Accessible Format Share", edi_share)
 
 st.info(
-    "Real Supabase data is used where available. Generated demo values are used only for metrics that still depend on incomplete source tables."
+    "Real Supabase data is used where available. Clearly labeled generated values appear only where source coverage is still incomplete."
 )
 
+# Project overview
+st.subheader("Project Overview")
+st.write(
+    "Bibliometrics+ is a prototype decision-support dashboard designed to help public libraries analyze circulation patterns, collection diversity, accessibility, and equity-focused indicators."
+)
+st.write(
+    "The platform brings together multiple city datasets into one analytics framework, while remaining transparent about data coverage and fallback use."
+)
 
-# Dashboard modules overview
-
+# Dashboard modules
 st.subheader("Dashboard Modules")
 
 col_a, col_b = st.columns(2)
@@ -313,9 +149,11 @@ col_a, col_b = st.columns(2)
 with col_a:
     st.markdown(
         """
-        <div class="section-card">
-            <h4 class="section-heading" style="margin-top:0;">Operational Analytics</h4>
-            <p>Track circulation totals, branch-level performance, system comparison, and long-term usage trends.</p>
+        <div class="metric-card">
+            <div class="metric-card-title">Operational Analytics</div>
+            <div style="color:#FFFFFF; line-height:1.6;">
+                Track circulation totals, branch-level performance, system comparison, and long-term usage trends.
+            </div>
         </div>
         """,
         unsafe_allow_html=True
@@ -323,9 +161,11 @@ with col_a:
 
     st.markdown(
         """
-        <div class="section-card">
-            <h4 class="section-heading" style="margin-top:0;">EDI & Collection Diversity</h4>
-            <p>Analyze accessible formats, subject representation, format diversity, and publication-year coverage.</p>
+        <div class="metric-card">
+            <div class="metric-card-title">EDI & Collection Diversity</div>
+            <div style="color:#FFFFFF; line-height:1.6;">
+                Analyze accessible formats, subject representation, publication patterns, and Toronto neighbourhood context indicators.
+            </div>
         </div>
         """,
         unsafe_allow_html=True
@@ -334,9 +174,11 @@ with col_a:
 with col_b:
     st.markdown(
         """
-        <div class="section-card">
-            <h4 class="section-heading" style="margin-top:0;">Data Reliability</h4>
-            <p>Review connection health, table inventory, data completeness, and join coverage.</p>
+        <div class="metric-card">
+            <div class="metric-card-title">Data Status</div>
+            <div style="color:#FFFFFF; line-height:1.6;">
+                Review connection health, table inventory, data completeness, and validation checks before interpreting results.
+            </div>
         </div>
         """,
         unsafe_allow_html=True
@@ -344,34 +186,14 @@ with col_b:
 
     st.markdown(
         """
-        <div class="section-card">
-            <h4 class="section-heading" style="margin-top:0;">AI-Supported Interpretation</h4>
-            <p>Generate narrative summaries that explain patterns in circulation, collection structure, and equity indicators.</p>
+        <div class="metric-card">
+            <div class="metric-card-title">AI Insights</div>
+            <div style="color:#FFFFFF; line-height:1.6;">
+                Generate narrative summaries and ask AI questions about KPI, EDI, and data-coverage patterns in the dashboard.
+            </div>
         </div>
         """,
         unsafe_allow_html=True
     )
 
-
-
-# Current system status
-
-st.subheader("Current System Status")
-
-c1, c2 = st.columns(2)
-
-with c1:
-    st.success("Supabase connection is active.")
-    st.write(f"- Libraries loaded: {int(first_or(df_libraries, 'n', 243)):,}")
-    st.write(f"- Collection items loaded: {int(first_or(df_items, 'n', 4350)):,}")
-
-with c2:
-    st.info(demo["status_note"])
-    st.write("- Subject analytics will become fully live once subject mapping tables are populated.")
-    st.write("- Accessibility metrics automatically switch to generated demo distributions when source values are missing.")
-
-
-
-# Footer
-
-st.caption("Bibliometrics+ Capstone Project | Carleton University | BIT-IRM")
+st.caption("Bibliometrics+ | Home")

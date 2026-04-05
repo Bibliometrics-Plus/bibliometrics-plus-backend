@@ -7,12 +7,15 @@ Purpose:
 - clearly distinguish between live data and demo-generated estimates
 """
 
+from __future__ import annotations
+
 import os
 import pandas as pd
 import streamlit as st
 import altair as alt
 from openai import OpenAI
 
+from app.components.shared_styles import apply_shared_styles, render_brand, render_page_intro
 from app.services.supabase_connector import check_connection, get_table_row_counts
 from app.services.dashboard_utils import (
     run_query,
@@ -20,7 +23,24 @@ from app.services.dashboard_utils import (
     demo_accessibility,
     demo_publication_year,
 )
-from app.components.shared_styles import apply_shared_styles
+
+def style_chart(chart):
+    return chart.configure_view(
+        strokeOpacity=0
+    ).configure_axis(
+        labelColor="#24324A",
+        titleColor="#24324A",
+        gridColor="rgba(36,50,74,0.12)",
+        domainColor="rgba(36,50,74,0.20)",
+        tickColor="rgba(36,50,74,0.20)",
+        labelFontSize=13,
+        titleFontSize=15
+    ).configure_title(
+        color="#24324A",
+        fontSize=18
+    )
+
+
 
 def get_openai_client():
     api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
@@ -28,21 +48,38 @@ def get_openai_client():
         return None
     return OpenAI(api_key=api_key)
 
-# Page setup
+
+def df_preview(df, max_rows=8):
+    if df is None or df.empty:
+        return "No rows available."
+    try:
+        return df.head(max_rows).to_markdown(index=False)
+    except Exception:
+        return df.head(max_rows).to_string(index=False)
+
 
 st.set_page_config(
     page_title="Bibliometrics+ | AI Insights",
-    page_icon="",
+    page_icon="📚",
     layout="wide"
 )
+
 apply_shared_styles()
+render_brand()
 
-#AI Insights
+render_page_intro(
+    "AI Insights",
+    "AI-assisted interpretation of KPI, EDI, and data-status patterns using the current dashboard filter context."
+)
 
-st.title("AI Insights")
-st.caption("Narrative interpretation layer for operational and EDI patterns.")
-
-# Sidebar filter
+st.sidebar.markdown(
+    """
+    <div style="color:#24324A; font-size:2rem; font-weight:700; margin-bottom:0.75rem;">
+        AI Filters
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 selected_system = st.sidebar.selectbox(
     "Library System",
@@ -63,12 +100,11 @@ else:
     filter_clause = "AND l.system_name = :selected_system"
     filter_params = {"selected_system": system_map[selected_system]}
 
-# Data Status context
+# Data status context
 db_status = check_connection()
 table_counts_df, _ = get_table_row_counts(schema="public")
 
-# Load circulation trend
-
+# Circulation trend
 sql_trend = f"""
 SELECT
     bk.year,
@@ -81,13 +117,9 @@ WHERE bk.circulation IS NOT NULL
 GROUP BY bk.year
 ORDER BY bk.year;
 """
-
 df_trend = run_query(sql_trend, filter_params)
 
-
-
-# Load system comparison
-
+# System comparison
 sql_system = f"""
 SELECT
     l.system_name AS system,
@@ -102,9 +134,7 @@ ORDER BY total_circulation DESC;
 """
 df_system = run_query(sql_system, filter_params)
 
-
-# Load subject representation
-
+# Subject representation
 sql_subject = f"""
 SELECT
     s.subject_name,
@@ -122,7 +152,6 @@ GROUP BY s.subject_name
 ORDER BY item_count DESC
 LIMIT 10;
 """
-
 df_subject = run_query(sql_subject, filter_params)
 
 used_demo_subject = False
@@ -130,9 +159,7 @@ if df_subject.empty:
     df_subject = demo_subjects(selected_system)
     used_demo_subject = True
 
-
-# Load accessibility distribution
-
+# Accessibility distribution
 sql_access = f"""
 SELECT
     ci.accessibility_format,
@@ -145,7 +172,6 @@ WHERE ci.accessibility_format IS NOT NULL
 GROUP BY ci.accessibility_format
 ORDER BY item_count DESC;
 """
-
 df_access = run_query(sql_access, filter_params)
 
 used_demo_access = False
@@ -153,7 +179,7 @@ if df_access.empty:
     df_access = demo_accessibility(selected_system)
     used_demo_access = True
 
-# Load publication-year distribution
+# Publication-year distribution
 sql_pub_year = f"""
 SELECT
     ci.publication_year,
@@ -166,7 +192,6 @@ WHERE ci.publication_year IS NOT NULL
 GROUP BY ci.publication_year
 ORDER BY ci.publication_year;
 """
-
 df_year = run_query(sql_pub_year, filter_params)
 
 used_demo_year = False
@@ -174,9 +199,8 @@ if df_year.empty:
     df_year = demo_publication_year(selected_system)
     used_demo_year = True
 
-# Load Toronto neighbourhood context
+# Toronto neighbourhood context
 df_neighbourhood = pd.DataFrame()
-
 if selected_system in ["All Libraries", "Toronto"]:
     sql_neighbourhood = """
     SELECT
@@ -202,7 +226,6 @@ if selected_system in ["All Libraries", "Toronto"]:
     df_neighbourhood = run_query(sql_neighbourhood)
 
 # Executive narrative
-
 st.subheader("Executive Narrative")
 
 scope = selected_system if selected_system != "All Libraries" else "the full dataset"
@@ -226,7 +249,6 @@ else:
     st.info("A live circulation trend is not currently available for this filter selection.")
 
 # Interpretive findings
-
 top_subject = df_subject.iloc[0]["subject_name"]
 top_subject_count = int(df_subject.iloc[0]["item_count"])
 
@@ -239,55 +261,43 @@ st.write(f"- The most visible accessibility-related format is **{top_access}** (
 st.write(f"- Subject insight source: {'Generated demo data' if used_demo_subject else 'Live Supabase data'}")
 st.write(f"- Accessibility insight source: {'Generated demo data' if used_demo_access else 'Live Supabase data'}")
 
-
-# Visual support charts
-
+# Support charts
 c1, c2 = st.columns(2)
 
 with c1:
     st.markdown("**Top Subject Representation**")
-    st.altair_chart(
-        alt.Chart(df_subject).mark_bar().encode(
-            x=alt.X("item_count:Q", title="Items"),
-            y=alt.Y("subject_name:N", sort="-x", title="Subject")
-        ).properties(height=320),
-        width="stretch"
-    )
+    subject_chart = alt.Chart(df_subject).mark_bar().encode(
+        x=alt.X("item_count:Q", title="Items"),
+        y=alt.Y("subject_name:N", sort="-x", title="Subject")
+    ).properties(height=320)
+    st.altair_chart(style_chart(subject_chart), width="stretch")
 
 with c2:
     st.markdown("**Accessibility Signal**")
-    st.altair_chart(
-        alt.Chart(df_access).mark_bar().encode(
-            x=alt.X("item_count:Q", title="Items"),
-            y=alt.Y("accessibility_format:N", sort="-x", title="Accessibility Format")
-        ).properties(height=320),
-        width="stretch"
-    )
+    access_chart = alt.Chart(df_access).mark_bar().encode(
+        x=alt.X("item_count:Q", title="Items"),
+        y=alt.Y("accessibility_format:N", sort="-x", title="Accessibility Format")
+    ).properties(height=320)
+    st.altair_chart(style_chart(access_chart), width="stretch")
 
-
-
-#check if openai is working
+# AI client
 client = get_openai_client()
-
 if client is None:
-    st.error("OPENAI_API_KEY is missing.")
+    st.warning("OPENAI_API_KEY is missing, so live AI chat is not available yet.")
 else:
     st.success("OpenAI client loaded.")
+
 st.subheader("Ask the AI About These Insights")
 st.caption("The AI assistant uses data summaries from Data Status, KPI, EDI, and Toronto neighbourhood context where available.")
 
-def df_preview(df, max_rows=8):
-    if df is None or df.empty:
-        return "No rows available."
-    return df.head(max_rows).to_markdown(index=False)
 
 def build_ai_context():
-    scope = selected_system if selected_system != "All Libraries" else "all library systems"
+    scope_text = selected_system if selected_system != "All Libraries" else "all library systems"
 
     context = f"""
 You are helping interpret a public-library analytics dashboard.
 
-Current filter scope: {scope}
+Current filter scope: {scope_text}
 
 DATABASE / DATA STATUS
 Connection mode: {db_status.mode}
@@ -318,6 +328,12 @@ Subject representation:
 Toronto neighbourhood context:
 {df_preview(df_neighbourhood)}
 
+Known coverage note:
+- TPL currently has the strongest branch_kpi coverage.
+- MPL currently has stronger collection_item coverage.
+- OPL currently has more limited KPI/collection coverage.
+- Subject-linked borrowing data may still rely on demo fallback in some views.
+
 Rules:
 - Be concise and practical.
 - Distinguish live data from demo/fallback data.
@@ -331,17 +347,15 @@ Rules:
 
     if used_demo_subject:
         context += "\nSubject data note: subject representation is currently based on generated demo data.\n"
-
     if used_demo_access:
         context += "\nAccessibility data note: accessibility distribution is currently based on generated demo data.\n"
-
     if used_demo_year:
         context += "\nPublication-year note: publication-year distribution is currently based on generated demo data.\n"
-
     if df_neighbourhood.empty:
         context += "\nNeighbourhood context note: Toronto neighbourhood context is unavailable or not applicable for the current filter.\n"
 
     return context
+
 
 if "ai_messages" not in st.session_state:
     st.session_state.ai_messages = [
@@ -404,7 +418,5 @@ if prompt := st.chat_input("Ask about the current dashboard view..."):
                 st.error(reply)
 
     st.session_state.ai_messages.append({"role": "assistant", "content": reply})
-
-
 
 st.caption("Bibliometrics+ | AI Insights")
