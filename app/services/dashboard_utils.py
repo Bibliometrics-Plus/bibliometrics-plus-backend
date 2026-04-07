@@ -24,24 +24,20 @@ from services.supabase_connector import check_connection, get_engine
 def run_query(sql: str, params: dict | None = None) -> pd.DataFrame:
     """
     Safely run a SQL query and return the results as a DataFrame.
-
-    Why this is useful:
-    - If Supabase is unavailable, the app should not crash
-    - If a query fails, the page should still load cleanly
-    - Returning an empty DataFrame lets each page decide how to handle missing data
     """
     status = check_connection()
 
-    # If the database is not available, return an empty DataFrame.
     if status.mode != "SUPABASE":
         return pd.DataFrame()
-
+    import streamlit as st
+    st.write("DEBUG run_query status is being used")
     try:
         engine = get_engine()
         with engine.connect() as conn:
             return pd.read_sql(text(sql), conn, params=params or {})
-    except Exception:
-        # We intentionally fail softly here so the UI stays stable.
+    except Exception as e:
+        import streamlit as st
+        st.error(f"run_query failed: {repr(e)}")
         return pd.DataFrame()
 
 

@@ -212,6 +212,104 @@ st.altair_chart(subject_chart, use_container_width=True)
 st.dataframe(df_subject, use_container_width=True)
 
 
+# Ottawa branch EDI priority ranking
+
+if selected_system in ["All Libraries", "Ottawa"]:
+    st.subheader("Ottawa Branch EDI Priority Ranking")
+
+    sql_ottawa_edi = """
+    SELECT
+        branch_name,
+        ward_name,
+        core_housing_need_pct,
+        age_0_14,
+        age_65_plus,
+        immigrants,
+        edi_priority_score
+    FROM ottawa_branch_edi_priority
+    ORDER BY edi_priority_score DESC;
+    """
+
+    df_ottawa_edi = run_query(sql_ottawa_edi)
+    st.write("Ottawa EDI rows:", len(df_ottawa_edi))
+    st.dataframe(df_ottawa_edi, use_container_width=True)
+
+    if df_ottawa_edi.empty:
+        st.warning("No Ottawa EDI priority data is available yet.")
+    else:
+        # make numeric columns numeric
+        numeric_cols = [
+            "core_housing_need_pct",
+            "age_0_14",
+            "age_65_plus",
+            "immigrants",
+            "edi_priority_score",
+        ]
+
+        for col in numeric_cols:
+            df_ottawa_edi[col] = df_ottawa_edi[col].astype(str).str.replace(",", "", regex=False)
+            df_ottawa_edi[col] = df_ottawa_edi[col].astype(float)
+
+        st.caption(
+            "This ranking uses Ottawa ward-level census context linked to library branches. "
+            "Higher scores indicate stronger indicators of potential equity-related service need."
+        )
+
+        top_n = st.slider(
+            "Show top Ottawa branches",
+            min_value=5,
+            max_value=min(20, len(df_ottawa_edi)),
+            value=min(10, len(df_ottawa_edi)),
+            key="ottawa_edi_top_n"
+        )
+
+        top_df = df_ottawa_edi.head(top_n).copy()
+
+        ottawa_edi_chart = alt.Chart(top_df).mark_bar().encode(
+            x=alt.X("edi_priority_score:Q", title="EDI Priority Score"),
+            y=alt.Y("branch_name:N", sort="-x", title="Ottawa Branch"),
+            tooltip=[
+                "branch_name",
+                "ward_name",
+                alt.Tooltip("core_housing_need_pct:Q", title="Core Housing Need %"),
+                alt.Tooltip("age_0_14:Q", title="Age 0-14"),
+                alt.Tooltip("age_65_plus:Q", title="Age 65+"),
+                alt.Tooltip("immigrants:Q", title="Immigrants"),
+                alt.Tooltip("edi_priority_score:Q", title="EDI Score")
+            ]
+        ).properties(height=420)
+
+        st.altair_chart(ottawa_edi_chart, use_container_width=True)
+
+        st.dataframe(
+            top_df[
+                [
+                    "branch_name",
+                    "ward_name",
+                    "core_housing_need_pct",
+                    "age_0_14",
+                    "age_65_plus",
+                    "immigrants",
+                    "edi_priority_score",
+                ]
+            ],
+            use_container_width=True
+        )
+
+        top_branch = top_df.iloc[0]["branch_name"]
+        top_ward = top_df.iloc[0]["ward_name"]
+
+        st.info(
+            f"""
+The current Ottawa EDI ranking identifies **{top_branch}** in **{top_ward}**
+as the highest-priority branch based on ward-level indicators including
+housing need, youth population, seniors, and immigrant population.
+
+This score should be interpreted as an **equity-context prioritization**
+measure rather than a full service-gap model, because Ottawa branch-level
+usage metrics are still being expanded.
+"""
+        )
 # Automated insight summary
 
 st.subheader("Automated Insight Summary")
