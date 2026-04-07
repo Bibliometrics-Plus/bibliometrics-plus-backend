@@ -1,254 +1,183 @@
 """
-Home.py
+Home page for Bibliometrics+.
 
-Main landing page for Bibliometrics+.
-
-Purpose:
-- introduce the project clearly
-- show a high-level executive snapshot
-- explain what each dashboard module does
-- reassure the user that the system is connected and working
-
-Design approach:
-- use live Supabase data where possible
-- use generated demo values only for still-incomplete metrics
+This page introduces the project and summarizes the data currently loaded into
+the system.
 """
 
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
 import streamlit as st
-from services.dashboard_utils import run_query, demo_home_snapshot
+
+# Streamlit runs page files like standalone scripts, so I add the repository
+# root to `sys.path` here to make imports such as `app.services...` resolve
+# consistently when the dashboard is launched from the terminal.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from app.components.charts import grouped_bar_chart, lollipop_chart
+from app.components.layout import (
+    configure_page,
+    render_app_shell,
+    render_chart_guide,
+    render_chart_summary,
+    render_footer,
+    render_hero,
+    render_page_header,
+    render_section_intro,
+)
+from app.components.tables import show_dataframe
+from app.services.filters import render_global_filters
+from app.services.formatters import format_int
+from app.services.chart_insights import summarize_grouped_bars, summarize_ranking
+from app.services.queries import get_home_summary, get_system_comparison_chart, get_system_coverage
+from app.styles.theme import apply_theme
 
 
-# Page configuration
+configure_page("Bibliometrics+")
+apply_theme()
+filters = render_global_filters()
+render_app_shell("Home")
 
-st.set_page_config(
-    page_title="Bibliometrics+",
-    page_icon="",
-    layout="wide"
+render_hero(
+    "Bibliometrics+",
+    (
+        "An AI & EDI-driven library usage analytics platform that combines "
+        "branch KPIs, collection analytics, accessibility indicators, and "
+        "community-context analysis using live institutional data across Toronto, Montreal, and Ottawa."
+    ),
+    chips=[
+        "Real data only",
+        "AI-grounded insights",
+        "EDI-aware analytics",
+        "Cross-city coverage",
+    ],
 )
 
-
-# Custom CSS styling
-
-st.markdown(
-    """
-    <style>
-        .main { padding-top: 1rem; }
-        .hero-card {
-            background-color: #f8fafc;
-            padding: 1.5rem;
-            border-radius: 14px;
-            border: 1px solid #e2e8f0;
-            margin-bottom: 1.5rem;
-        }
-        .section-card {
-            background-color: #ffffff;
-            padding: 1.25rem;
-            border-radius: 14px;
-            border: 1px solid #e5e7eb;
-            margin-bottom: 1rem;
-        }
-        .dashboard-title {
-            font-size: 2.2rem;
-            font-weight: 700;
-            margin-bottom: 0.2rem;
-        }
-        .dashboard-subtitle {
-            font-size: 1.1rem;
-            color: #475569;
-            margin-bottom: 0.8rem;
-        }
-        .small-muted {
-            color: #475569;
-            font-size: 0.95rem;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True
+render_page_header(
+    "Executive Overview",
+    "A high-level summary of the data, system coverage, and analytical scope available across the application.",
 )
 
+summary_df = get_home_summary()
+summary = summary_df.iloc[0]
 
-# Sidebar filters
+metric_1, metric_2, metric_3 = st.columns(3)
+with metric_1:
+    st.metric("Libraries Loaded", format_int(summary["libraries"]))
+with metric_2:
+    st.metric("Collection Items", format_int(summary["collection_items"]))
+with metric_3:
+    st.metric("Branch KPI Rows", format_int(summary["branch_kpi_rows"]))
 
-st.sidebar.title("Dashboard Filters")
+metric_4, metric_5, metric_6 = st.columns(3)
+with metric_4:
+    st.metric("Circulation Rows", format_int(summary["circulation_rows"]))
+with metric_5:
+    st.metric("Accessible Items", format_int(summary["accessibility_items"]))
+with metric_6:
+    st.metric("Branch Context Rows", format_int(summary["ottawa_edi_rows"]))
 
-selected_library = st.sidebar.selectbox(
-    "Library",
-    ["All Libraries", "Ottawa Public Library", "Toronto Public Library", "Montreal Public Library"]
+comparison_df = get_system_comparison_chart()
+coverage_df = get_system_coverage()
+coverage_matrix_df = coverage_df.melt(
+    id_vars=["system_name"],
+    value_vars=["libraries", "kpi_years", "distinct_formats"],
+    var_name="coverage_measure",
+    value_name="coverage_value",
+)
+coverage_matrix_df["coverage_measure"] = coverage_matrix_df["coverage_measure"].map(
+    {
+        "libraries": "Libraries",
+        "kpi_years": "KPI Years",
+        "distinct_formats": "Formats",
+    }
 )
 
-year_range = st.sidebar.slider("Year Range", 2015, 2025, (2019, 2024))
+overview_tab, compare_tab, detail_tab = st.tabs(["Overview", "Compare", "Detail"])
 
-user_group = st.sidebar.selectbox(
-    "User Group",
-    ["All Users", "Adults", "Youth", "Seniors"]
-)
+with overview_tab:
+    left_col, right_col = st.columns((1.25, 1))
+    with left_col:
+        render_section_intro(
+            "System-Level Operating Scale",
+            "Start with the broadest view: this ranking compares the circulation volume currently represented for each system.",
+        )
+        st.altair_chart(
+            lollipop_chart(
+                comparison_df,
+                x="total_circulation:Q",
+                y="system_name:N",
+                tooltip=["system_name", "total_circulation"],
+                height=320,
+                color="#1C7ED6",
+            ),
+            width="stretch",
+        )
+        render_chart_guide("Longer lines and farther-right dots mean higher total circulation. This blue color is only a highlight color here, not a separate category.")
+        render_chart_summary(
+            summarize_ranking(
+                comparison_df,
+                label_col="system_name",
+                value_col="total_circulation",
+                metric_label="total circulation",
+            )
+        )
 
+    with right_col:
+        render_section_intro(
+            "Analytical Coverage",
+            (
+                "The application supports high-level system comparison, mid-level KPI and EDI exploration, "
+                "and branch-level inspection using the currently available data."
+            ),
+        )
+        st.markdown(
+            """
+            - `System Overview` compares Toronto, Montreal, and Ottawa using live coverage.
+            - `KPI Analysis` focuses on branch-level circulation, visits, registrations, and trends.
+            - `EDI Analytics` compares accessibility, publication year, and format indicators across all three systems, with deeper branch context where available.
+            - `Branch Explorer` supports branch-level inspection.
+            - `AI Insights` summarizes filtered query results.
+            """
+        )
 
-# Hero / landing section
-
-st.markdown(
-    """
-    <div class="hero-card">
-        <div class="dashboard-title">Bibliometrics+</div>
-        <div class="dashboard-subtitle">AI & EDI-Driven Library Usage Analytics Dashboard</div>
-        <div class="small-muted">
-            A prototype decision-support platform designed to help public libraries analyze
-            circulation patterns, collection diversity, accessibility, and equity-focused indicators.
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-
-
-# Project overview
-
-st.markdown(
-    """
-    <div class="section-card">
-        <h3 style="margin-top:0;">Project Overview</h3>
-        <p>Bibliometrics+ is a prototype analytics system designed to support evidence-based decision making in public libraries.</p>
-        <p>The platform combines traditional bibliometric analysis with Equity, Diversity, and Inclusion indicators to evaluate collection usage, accessibility, and representation.</p>
-        <p>The objective is to move beyond simple circulation statistics and provide insights that help libraries improve equitable access to information resources.</p>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-
-
-# Load live metrics where available
-# We query a few core tables and then fall back to generated values only if needed.
-df_libraries = run_query("SELECT COUNT(*) AS n FROM library;")
-df_items = run_query("SELECT COUNT(*) AS n FROM collection_item;")
-df_tx = run_query("SELECT SUM(circulation) AS total_circulation FROM branch_kpi;")
-df_subjects = run_query("SELECT COUNT(DISTINCT subject_id) AS n FROM collection_item_subject;")
-df_access = run_query("""
-SELECT
-    ROUND(100.0 * COUNT(*) FILTER (WHERE accessibility_format IS NOT NULL) / NULLIF(COUNT(*), 0), 1) AS edi_share
-FROM collection_item;
-""")
-
-demo = demo_home_snapshot()
-
-
-def first_or(df, col, fallback):
-    """
-    Return the first value in a DataFrame column,
-    or a fallback value if the query came back empty.
-    """
-    if df.empty or col not in df.columns or df.iloc[0][col] is None:
-        return fallback
-    return df.iloc[0][col]
-
-
-# Prepare display values
-total_circulation = f"{int(first_or(df_tx, 'total_circulation', demo['total_circulation'])):,}"
-distinct_subjects = int(first_or(df_subjects, "n", demo["distinct_subjects"]))
-edi_share = first_or(df_access, "edi_share", demo["edi_share"])
-
-if isinstance(edi_share, float):
-    edi_share = f"{edi_share:.1f}%"
-
-
-
-# Executive snapshot cards
-
-st.subheader("Executive Snapshot")
-
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.metric("Total Circulation", total_circulation)
-
-with col2:
-    # Growth is still a demo estimate until we formalize year-over-year KPI logic
-    st.metric("Circulation Growth", demo["circulation_growth"])
-
-with col3:
-    st.metric("Distinct Subjects Mapped", f"{distinct_subjects:,}")
-
-with col4:
-    st.metric("Accessible Format Share", edi_share)
-
-
-
-# Explain data sourcing
-
-st.info(
-    "Real Supabase data is used where available. Generated demo values are used only for metrics that still depend on incomplete source tables."
-)
-
-
-# Dashboard modules overview
-
-st.subheader("Dashboard Modules")
-
-col_a, col_b = st.columns(2)
-
-with col_a:
-    st.markdown(
-        """
-        <div class="section-card">
-            <h4 style="margin-top:0;">Operational Analytics</h4>
-            <p>Track circulation totals, branch-level performance, system comparison, and long-term usage trends.</p>
-        </div>
-        """,
-        unsafe_allow_html=True
+with compare_tab:
+    render_section_intro(
+        "Coverage Matrix",
+        "This matrix supports comparison tasks by showing which systems are stronger in terms of library footprint, KPI history, and format breadth.",
+    )
+    st.altair_chart(
+        grouped_bar_chart(
+            coverage_matrix_df,
+            x="coverage_measure:N",
+            y="coverage_value:Q",
+            color="system_name:N",
+            tooltip=["system_name", "coverage_measure", "coverage_value"],
+            height=240,
+            legend_title="Library system",
+        ),
+        width="stretch",
+    )
+    render_chart_guide("Each coverage category now groups one bar per system, so the comparison reads directly from bar height instead of color shading.")
+    render_chart_summary(
+        summarize_grouped_bars(
+            coverage_matrix_df,
+            group_col="coverage_measure",
+            category_col="system_name",
+            value_col="coverage_value",
+            value_label="coverage",
+        )
     )
 
-    st.markdown(
-        """
-        <div class="section-card">
-            <h4 style="margin-top:0;">EDI & Collection Diversity</h4>
-            <p>Analyze accessible formats, subject representation, format diversity, and publication-year coverage.</p>
-        </div>
-        """,
-        unsafe_allow_html=True
+with detail_tab:
+    render_section_intro(
+        "Live Data Coverage",
+        "Use the detailed table for inspection, filtering, and validation of the coverage shown at the overview and comparison levels.",
     )
-
-with col_b:
-    st.markdown(
-        """
-        <div class="section-card">
-            <h4 style="margin-top:0;">Data Reliability</h4>
-            <p>Review connection health, table inventory, data completeness, and join coverage.</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        """
-        <div class="section-card">
-            <h4 style="margin-top:0;">AI-Supported Interpretation</h4>
-            <p>Generate narrative summaries that explain patterns in circulation, collection structure, and equity indicators.</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-
-
-# Current system status
-
-st.subheader("Current System Status")
-
-c1, c2 = st.columns(2)
-
-with c1:
-    st.success("Supabase connection is active.")
-    st.write(f"- Libraries loaded: {int(first_or(df_libraries, 'n', 243)):,}")
-    st.write(f"- Collection items loaded: {int(first_or(df_items, 'n', 4350)):,}")
-
-with c2:
-    st.info(demo["status_note"])
-    st.write("- Subject analytics will become fully live once subject mapping tables are populated.")
-    st.write("- Accessibility metrics automatically switch to generated demo distributions when source values are missing.")
-
-
-
-# Footer
-
-st.caption("Bibliometrics+ Capstone Project | Carleton University | BIT-IRM")
+    show_dataframe(coverage_df)
+render_footer()

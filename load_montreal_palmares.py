@@ -4,8 +4,8 @@ from sqlalchemy import text
 from db import engine
 
 BASE_DIR = Path(__file__).resolve().parent
-FILE_NAME = "palmaresparbibliodu20141110au20141123.tsv"
-CSV_PATH = BASE_DIR / "data" / "raw" / "montreal" / FILE_NAME
+DATA_DIR = BASE_DIR / "data" / "raw" / "montreal"
+PALMARES_FILES = sorted(DATA_DIR.glob("palmaresparbibliodu*.tsv"))
 
 def extract_author(title: str):
     if "/" in title:
@@ -54,89 +54,89 @@ def find_library_id(conn, raw_name: str):
     return lib_id
 
 def load_palmares():
-    df = pd.read_csv(CSV_PATH, sep="\t", dtype=str).fillna("")
-
     inserted_items = 0
     inserted_authors = 0
     inserted_links = 0
     skipped_no_library_match = 0
+    processed_files = 0
 
     with engine.begin() as conn:
-        for _, row in df.iterrows():
-            raw_title = row.get("Titre", "").strip()
-            raw_library_name = row.get("Nom Bibliothèque", "").strip()
-            secteur = row.get("Secteur", "").strip()
+        for csv_path in PALMARES_FILES:
+            df = pd.read_csv(csv_path, sep="\t", dtype=str).fillna("")
+            processed_files += 1
 
-            if not raw_title or not raw_library_name:
-                continue
+            for _, row in df.iterrows():
+                raw_title = row.get("Titre", "").strip()
+                raw_library_name = row.get("Nom Bibliothèque", "").strip()
+                secteur = row.get("Secteur", "").strip()
 
-            library_id = find_library_id(conn, raw_library_name)
-            if library_id is None:
-                skipped_no_library_match += 1
-                continue
+                if not raw_title or not raw_library_name:
+                    continue
 
-            title = clean_title(raw_title)
-            author_name = extract_author(raw_title)
+                library_id = find_library_id(conn, raw_library_name)
+                if library_id is None:
+                    skipped_no_library_match += 1
+                    continue
 
-            # Check if item exists already (same title + library)
-            item_id = conn.execute(
-                text("""
-                    SELECT item_id
-                    FROM collection_item
-                    WHERE title = :title AND library_id = :library_id
-                    LIMIT 1
-                """),
-                {"title": title, "library_id": library_id},
-            ).scalar()
+                title = clean_title(raw_title)
+                author_name = extract_author(raw_title)
 
-            # If not exists, insert it
-            if item_id is None:
                 item_id = conn.execute(
                     text("""
-                        INSERT INTO collection_item (library_id, title, format)
-                        VALUES (:library_id, :title, :format)
-                        RETURNING item_id
-                    """),
-                    {"library_id": library_id, "title": title, "format": secteur},
-                ).scalar()
-                inserted_items += 1
-
-            # Author insert/find
-            author_id = None
-            if author_name:
-                author_id = conn.execute(
-                    text("SELECT author_id FROM author WHERE name = :name LIMIT 1"),
-                    {"name": author_name},
-                ).scalar()
-
-                if author_id is None:
-                    author_id = conn.execute(
-                        text("INSERT INTO author (name) VALUES (:name) RETURNING author_id"),
-                        {"name": author_name},
-                    ).scalar()
-                    inserted_authors += 1
-
-                # Link item <-> author (avoid duplicates)
-                exists_link = conn.execute(
-                    text("""
-                        SELECT 1 FROM collection_item_author
-                        WHERE item_id = :item_id AND author_id = :author_id
+                        SELECT item_id
+                        FROM collection_item
+                        WHERE title = :title AND library_id = :library_id
                         LIMIT 1
                     """),
-                    {"item_id": item_id, "author_id": author_id},
+                    {"title": title, "library_id": library_id},
                 ).scalar()
 
-                if exists_link is None:
-                    conn.execute(
+                if item_id is None:
+                    item_id = conn.execute(
                         text("""
-                            INSERT INTO collection_item_author (item_id, author_id)
-                            VALUES (:item_id, :author_id)
+                            INSERT INTO collection_item (library_id, title, format)
+                            VALUES (:library_id, :title, :format)
+                            RETURNING item_id
+                        """),
+                        {"library_id": library_id, "title": title, "format": secteur},
+                    ).scalar()
+                    inserted_items += 1
+
+                author_id = None
+                if author_name:
+                    author_id = conn.execute(
+                        text("SELECT author_id FROM author WHERE name = :name LIMIT 1"),
+                        {"name": author_name},
+                    ).scalar()
+
+                    if author_id is None:
+                        author_id = conn.execute(
+                            text("INSERT INTO author (name) VALUES (:name) RETURNING author_id"),
+                            {"name": author_name},
+                        ).scalar()
+                        inserted_authors += 1
+
+                    exists_link = conn.execute(
+                        text("""
+                            SELECT 1 FROM collection_item_author
+                            WHERE item_id = :item_id AND author_id = :author_id
+                            LIMIT 1
                         """),
                         {"item_id": item_id, "author_id": author_id},
-                    )
-                    inserted_links += 1
+                    ).scalar()
 
-    print("DONE ✅ Montreal palmares load finished")
+                    if exists_link is None:
+                        conn.execute(
+                            text("""
+                                INSERT INTO collection_item_author (item_id, author_id)
+                                VALUES (:item_id, :author_id)
+                            """),
+                            {"item_id": item_id, "author_id": author_id},
+                        )
+                        inserted_links += 1
+
+    print("DONE Montreal palmares load finished")
+    print("Processed palmares files:", processed_files)
     print("Inserted collection_item:", inserted_items)
     print("Inserted author:", inserted_authors)
     print("Inserted collection_item_author links:", inserted_links)
