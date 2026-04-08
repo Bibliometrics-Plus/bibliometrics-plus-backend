@@ -10,11 +10,13 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from dotenv import load_dotenv
 import pandas as pd
 import streamlit as st
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
+load_dotenv()
 
 @dataclass
 class DBStatus:
@@ -39,7 +41,10 @@ def _build_connection_string() -> str:
     dbname = st.secrets.get("SUPABASE_DB_NAME", "postgres")
     user = st.secrets.get("SUPABASE_DB_USER", "postgres")
     password = st.secrets.get("SUPABASE_DB_PASSWORD", "")
-    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dbname}"
+    if host and password:
+        return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dbname}"
+
+    raise ValueError("No DATABASE_URL found in .env and no .secrets configured")
 
 
 @st.cache_resource(show_spinner=False)
