@@ -39,7 +39,7 @@ render_app_shell("Branch Explorer")
 
 render_page_header(
     "Branch Explorer",
-    "Inspect an individual branch in more detail, including KPI trends and Ottawa community-context indicators where those records are available.",
+    "Inspect an individual branch in more detail, including KPI trends and indicators where those records are available.",
 )
 
 if filters.is_all_branches:

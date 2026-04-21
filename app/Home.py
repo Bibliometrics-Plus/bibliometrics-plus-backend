@@ -19,7 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from app.components.charts import grouped_bar_chart, lollipop_chart
+from app.components.charts import bar_chart, grouped_bar_chart
 from app.components.layout import (
     configure_page,
     render_app_shell,
@@ -52,7 +52,7 @@ render_hero(
     ),
     chips=[
         "Real data only",
-        "AI-grounded insights",
+        "AI-supported insights",
         "EDI-aware analytics",
         "Cross-city coverage",
     ],
@@ -108,17 +108,19 @@ with overview_tab:
             "Start with the broadest view: this ranking compares the circulation volume currently represented for each system.",
         )
         st.altair_chart(
-            lollipop_chart(
+            bar_chart(
                 comparison_df,
                 x="total_circulation:Q",
                 y="system_name:N",
                 tooltip=["system_name", "total_circulation"],
                 height=320,
                 color="#1C7ED6",
+                x_title="Total circulation",
+                y_title="Library system",
             ),
             width="stretch",
         )
-        render_chart_guide("Longer lines and farther-right dots mean higher total circulation. This blue color is only a highlight color here, not a separate category.")
+        render_chart_guide("Longer bars mean higher total circulation. This blue color is only a highlight color here, not a separate category.")
         render_chart_summary(
             summarize_ranking(
                 comparison_df,

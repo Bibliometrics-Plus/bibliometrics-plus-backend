@@ -12,7 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from app.components.charts import area_line_chart, bar_chart, grouped_bar_chart, lollipop_chart
+from app.components.charts import area_line_chart, bar_chart, grouped_bar_chart
 from app.components.layout import (
     configure_page,
     render_app_shell,
@@ -72,6 +72,8 @@ def _render_ranked_context_chart(
             tooltip=tooltip,
             color=color,
             height=400,
+            x_title=x_title,
+            y_title="Branch",
         ),
         width="stretch",
     )
@@ -103,7 +105,6 @@ render_filter_summary(
         f"System: {filters.system}",
         f"Branch: {filters.branch}",
         f"Years: {filters.year_start} to {filters.year_end}",
-        "Subject analytics are intentionally excluded because the live subject tables are not loaded yet.",
         "Collection-based equity indicators are available across all three systems, while Ottawa includes the richest branch-level community-context layer in the current data environment.",
     ]
 )
@@ -163,17 +164,19 @@ with overview_tab:
                 "This view compares accessibility representation across all three library systems using the currently available collection data.",
             )
             st.altair_chart(
-                lollipop_chart(
+                bar_chart(
                     system_coverage_df,
                     x="accessibility_share_value:Q",
                     y="system_name:N",
                     tooltip=["system_name", "items_with_accessibility", "collection_items", "accessibility_share_value"],
                     color="#0F9D76",
                     height=320,
+                    x_title="Accessibility coverage %",
+                    y_title="Library system",
                 ),
                 width="stretch",
             )
-            render_chart_guide("Farther-right dots mean a higher share of collection items with accessibility metadata. The green color simply highlights the ranking.")
+            render_chart_guide("Longer bars mean a higher share of collection items with accessibility metadata. The green color simply highlights the ranking.")
             render_chart_summary(
                 summarize_ranking(
                     system_coverage_df,
@@ -192,17 +195,19 @@ with overview_tab:
                 st.info("No accessibility format data is available for the current filter selection.")
             else:
                 st.altair_chart(
-                    lollipop_chart(
+                    bar_chart(
                         access_df,
                         x="item_count:Q",
                         y="accessibility_format:N",
                         tooltip=["accessibility_format", "item_count"],
                         color="#0F9D76",
                         height=360,
+                        x_title="Items",
+                        y_title="Accessibility format",
                     ),
                     width="stretch",
                 )
-                render_chart_guide("Formats farther to the right appear more often in the selected collection scope.")
+                render_chart_guide("Longer bars mean those accessibility-related formats appear more often in the selected collection scope.")
                 render_chart_summary(
                     summarize_ranking(
                         access_df,
@@ -219,17 +224,19 @@ with overview_tab:
                 "This view compares how fully publication-year metadata is represented across Toronto, Montreal, and Ottawa.",
             )
             st.altair_chart(
-                lollipop_chart(
+                bar_chart(
                     system_coverage_df,
                     x="publication_year_share_value:Q",
                     y="system_name:N",
                     tooltip=["system_name", "items_with_year", "collection_items", "publication_year_share_value"],
                     color="#2563EB",
                     height=320,
+                    x_title="Publication year coverage %",
+                    y_title="Library system",
                 ),
                 width="stretch",
             )
-            render_chart_guide("Farther-right dots mean a larger share of collection items have publication-year metadata.")
+            render_chart_guide("Longer bars mean a larger share of collection items have publication-year metadata.")
             render_chart_summary(
                 summarize_ranking(
                     system_coverage_df,
@@ -277,17 +284,19 @@ with compare_tab:
         st.info("No collection format diversity data is available for the current filter selection.")
     else:
         st.altair_chart(
-            lollipop_chart(
+            bar_chart(
                 format_df.head(20),
                 x="item_count:Q",
                 y="format:N",
                 tooltip=["format", "item_count"],
                 color="#0B5FFF",
                 height=420,
+                x_title="Items",
+                y_title="Format",
             ),
-                width="stretch",
-            )
-        render_chart_guide("Formats farther to the right have more items in the selected collection scope.")
+            width="stretch",
+        )
+        render_chart_guide("Longer bars mean more items in the selected collection scope, so the ranking can be read directly from bar length.")
         render_chart_summary(
             summarize_ranking(
                 format_df.head(20),

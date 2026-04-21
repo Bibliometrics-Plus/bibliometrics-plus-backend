@@ -27,7 +27,7 @@ render_app_shell("AI Insights")
 
 render_page_header(
     "AI Insights",
-    "Ask questions about the current view using AI responses grounded in the filtered query results.",
+    "Ask questions about the current view using AI responses based on the filtered query results.",
 )
 render_filter_summary(
     [
@@ -39,7 +39,7 @@ render_filter_summary(
 )
 
 render_section_intro(
-    "Grounded AI Assistant",
+    "Ask Bibliometrics+",
     "This assistant summarizes the current KPI and EDI evidence and is expected to signal when the available context is limited.",
 )
 
@@ -72,7 +72,7 @@ default_prompt_map = {
     "Custom question": "",
 }
 default_question = default_prompt_map[prompt_option]
-question = st.text_area("Ask the AI assistant", value=default_question, height=120)
+question = st.text_area("Ask Bibliometrics+", value=default_question, height=120)
 
 if st.button("Generate AI Insight", type="primary", disabled=not has_openai_key):
     with st.spinner("Generating response from the current filtered results..."):

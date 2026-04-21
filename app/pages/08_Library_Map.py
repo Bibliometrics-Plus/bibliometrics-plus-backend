@@ -4,7 +4,7 @@ Library access and branch discovery page.
 I rebuilt this page to feel more aligned with the project instead of acting
 like a generic pin map. The goal here is to help someone search a place,
 discover nearby libraries, and still connect that search back to real branch
-analytics and Ottawa EDI context where available.
+analytics and EDI context where available.
 """
 
 from __future__ import annotations
@@ -371,7 +371,7 @@ with sidebar_col:
 
 render_section_intro(
     "Branch Insight Panel",
-    "This section lets the locator stay connected to the rest of the project by showing real branch KPI trends and Ottawa EDI context for the branch you want to inspect.",
+    "This section lets the locator stay connected to the rest of the project by showing real branch KPI trends and EDI context for the branch you want to inspect.",
 )
 
 if search_result is not None:
@@ -494,7 +494,7 @@ if selected_branch_label:
 
         render_section_intro(
             "Metric Mix by Year",
-            "This grouped view makes the selected branch easier to explain in presentations by showing circulation, visits, and registrations together.",
+            "This grouped view makes the selected branch easier to explain by showing circulation, visits, and registrations together.",
         )
         st.altair_chart(
             grouped_bar_chart(

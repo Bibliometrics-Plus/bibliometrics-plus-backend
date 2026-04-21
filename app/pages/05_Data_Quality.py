@@ -32,7 +32,7 @@ render_page_header(
 
 st.info(
     "This page reports application-wide data coverage and support status. "
-    f"Your current sidebar scope is {filters.system} / {filters.branch}, but the audit values below summarize the overall loaded environment."
+    f"The current sidebar scope is {filters.system} / {filters.branch}, but the audit values below summarize the overall loaded environment."
 )
 
 overview_df = get_data_quality_overview()

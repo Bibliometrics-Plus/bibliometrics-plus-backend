@@ -23,7 +23,6 @@ PAGE_LINKS = [
     ("Branch Explorer", "app/pages/04_Branch_Explorer.py", ["branch", "branches", "explorer", "profile"]),
     ("Data Quality", "app/pages/05_Data_Quality.py", ["data", "quality", "coverage"]),
     ("AI Insights", "app/pages/06_AI_Insights.py", ["ai", "insights", "assistant", "chat"]),
-    ("Methods & Definitions", "app/pages/07_Methodology.py", ["methods", "methodology", "definitions"]),
     ("Library Access", "app/pages/08_Library_Map.py", ["library", "map", "locator", "access"]),
 ]
 
@@ -191,7 +190,7 @@ def render_hero(title: str, body: str, chips: list[str] | None = None) -> None:
                 <div class="bm-hero-aside">
                     <div class="bm-hero-kicker">Platform Focus</div>
                     <strong>Usage, equity, and access</strong>
-                    <div>Designed to support system comparison, branch exploration, and grounded interpretation across public library data.</div>
+                    <div>Designed to support system comparison, branch exploration, and evidence-based interpretation across public library data.</div>
                 </div>
             </div>
         </div>

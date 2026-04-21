@@ -13,7 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from app.components.charts import grouped_bar_chart, heatmap_chart, lollipop_chart
+from app.components.charts import bar_chart, faceted_comparison_bar_chart, normalized_metric_dot_chart
 from app.components.layout import (
     configure_page,
     render_app_shell,
@@ -39,7 +39,7 @@ render_app_shell("System Overview")
 
 render_page_header(
     "System Overview",
-    "Compare the real operational coverage of Toronto, Montreal, and Ottawa before drilling into individual KPI or EDI pages.",
+    "Compare the real operational coverage of Toronto, Montreal, and Ottawa before the individual KPI or EDI pages.",
 )
 render_filter_summary(
     [
@@ -74,15 +74,17 @@ with top_left:
         "This ranking compares how many library locations are represented per system in the current data environment.",
     )
     st.altair_chart(
-        lollipop_chart(
+        bar_chart(
             coverage_df,
             x="libraries:Q",
             y="system_name:N",
             tooltip=["system_name", "libraries"],
+            x_title="Libraries",
+            y_title="Library system",
         ),
         width="stretch",
     )
-    render_chart_guide("Each dot marks one library system. Farther-right dots mean more library locations, and the blue color is only highlighting the ranking.")
+    render_chart_guide("Longer bars mean more library locations in the current dataset, so the ranking can be read directly from bar length.")
     render_chart_summary(
         summarize_ranking(
             coverage_df,
@@ -98,16 +100,18 @@ with top_right:
         "Collection coverage is strongest for Montreal in the current data environment, which supports deeper collection-level analysis for that system.",
     )
     st.altair_chart(
-        lollipop_chart(
+        bar_chart(
             coverage_df,
             x="collection_items:Q",
             y="system_name:N",
             tooltip=["system_name", "collection_items", "items_with_accessibility"],
             color="#0F9D76",
+            x_title="Collection items",
+            y_title="Library system",
         ),
         width="stretch",
     )
-    render_chart_guide("Farther-right dots mean more collection records in the loaded data. The green color highlights the ranking only; it does not represent a second metric.")
+    render_chart_guide("Longer bars mean more collection records in the loaded data. The green color highlights the ranking only; it does not represent a second metric.")
     render_chart_summary(
         summarize_ranking(
             coverage_df,
@@ -137,21 +141,22 @@ long_df["metric_name"] = long_df["metric_name"].map(
 
 render_section_intro(
     "Operational Coverage Comparison",
-    "This matrix provides a compact comparison of operational scale across systems.",
+    "This faceted comparison separates circulation, visits, and registrations so each metric stays readable on its own scale.",
 )
 st.altair_chart(
-    grouped_bar_chart(
+    faceted_comparison_bar_chart(
         long_df,
-        x="metric_name:N",
-        y="metric_value:Q",
-        color="system_name:N",
+        metric_col="metric_name",
+        category_col="system_name",
+        value_col="metric_value",
         tooltip=["system_name", "metric_name", "metric_value"],
-        height=360,
-        legend_title="Library system",
+        height=220,
+        column_title="Operational metric",
+        y_title="Library system",
     ),
     width="stretch",
 )
-render_chart_guide("Each metric category groups one bar per system, so users can compare Toronto, Ottawa, and Montreal directly without decoding color intensity.")
+render_chart_guide("Each metric now has its own panel and its own scale, so circulation, visits, and registrations can all be compared clearly without the smaller measures disappearing.")
 render_chart_summary(
     summarize_grouped_bars(
         long_df,
@@ -184,22 +189,23 @@ coverage_matrix_df["coverage_measure"] = coverage_matrix_df["coverage_measure"].
 )
 
 render_section_intro(
-    "Coverage Profile Matrix",
-    "This view highlights where each system is strongest in terms of historical coverage, format breadth, and accessibility representation.",
+    "Coverage Profile Comparison",
+    "This comparison keeps each measure on its own scale so percentage coverage, format counts, and KPI years are not blended into one misleading color ramp.",
 )
 st.altair_chart(
-    heatmap_chart(
+    normalized_metric_dot_chart(
         coverage_matrix_df,
-        x="coverage_measure:N",
-        y="system_name:N",
-        color="coverage_value:Q",
+        metric_col="coverage_measure",
+        category_col="system_name",
+        value_col="coverage_value",
         tooltip=["system_name", "coverage_measure", "coverage_value"],
         height=220,
-        legend_title="Higher coverage in this view",
+        column_title="Coverage measure",
+        y_title="Library system",
     ),
     width="stretch",
 )
-render_chart_guide("This matrix now uses darker cells for higher values and prints the exact number inside each cell, so the color supports the result instead of replacing it.")
+render_chart_guide("Each panel compares systems only within that one measure. The dot position shows relative strength for that measure, and the label shows the exact value.")
 render_chart_summary(
     summarize_heatmap(
         coverage_matrix_df,

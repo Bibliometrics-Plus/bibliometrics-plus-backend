@@ -17,7 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from app.components.charts import area_line_chart, grouped_bar_chart, lollipop_chart
+from app.components.charts import area_line_chart, bar_chart, grouped_bar_chart
 from app.components.layout import (
     configure_page,
     render_app_shell,
@@ -124,16 +124,18 @@ with overview_tab:
             st.info("No branch ranking is available for the current filter selection.")
         else:
             st.altair_chart(
-                lollipop_chart(
+                bar_chart(
                     top_branches_df,
                     x="metric_value:Q",
                     y="branch:N",
                     tooltip=["branch", "system_name", "metric_value"],
                     height=360,
+                    x_title=rank_metric.replace("_", " ").title(),
+                    y_title="Branch",
                 ),
                 width="stretch",
             )
-            render_chart_guide("Branches higher in the list and farther to the right have stronger results for the selected ranking metric.")
+            render_chart_guide("Longer bars mean stronger results for the selected ranking metric, so the leading branches are easy to compare directly.")
             render_chart_summary(
                 summarize_ranking(
                     top_branches_df,
@@ -183,17 +185,19 @@ with compare_tab:
         st.info("No collection format data is available for the current filter selection.")
     else:
         st.altair_chart(
-            lollipop_chart(
+            bar_chart(
                 format_df.head(15),
                 x="item_count:Q",
                 y="format:N",
                 tooltip=["format", "item_count"],
                 color="#0F9D76",
                 height=420,
+                x_title="Items",
+                y_title="Format",
             ),
             width="stretch",
         )
-        render_chart_guide("Formats farther to the right have more items in the selected scope. The green color is only highlighting this ranking.")
+        render_chart_guide("Longer bars mean more items in the selected scope. The green color only highlights the ranking.")
         render_chart_summary(
             summarize_ranking(
                 format_df.head(15),
